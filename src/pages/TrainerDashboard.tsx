@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTraining } from '@/contexts/TrainingContext';
+import { useTrainings } from '@/hooks/useTrainings';
 import { StatsSidebar } from '@/components/StatsSidebar';
 import { TrainingCard } from '@/components/TrainingCard';
 import { TrainingForm } from '@/components/TrainingForm';
@@ -10,7 +10,8 @@ import {
   LogOut, 
   Sprout,
   Search,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -24,26 +25,25 @@ import {
 
 const TrainerDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const { getTrainerStats, getTrainerTrainings, deleteTraining } = useTraining();
   const navigate = useNavigate();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [modeFilter, setModeFilter] = useState<string>('all');
+
+  const { trainings, isLoading, getStats, refetch } = useTrainings(user?.trainerId);
+  const stats = getStats();
 
   if (!user) return null;
 
-  const stats = getTrainerStats(user.id);
-  const trainings = getTrainerTrainings(user.id);
-
   const filteredTrainings = trainings.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          t.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || t.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+                          (t.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
+    const matchesMode = modeFilter === 'all' || t.training_mode === modeFilter;
+    return matchesSearch && matchesMode;
   });
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -85,21 +85,25 @@ const TrainerDashboard: React.FC = () => {
               className="pl-10"
             />
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select value={modeFilter} onValueChange={setModeFilter}>
             <SelectTrigger className="w-48">
               <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Filter by category" />
+              <SelectValue placeholder="Filter by mode" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="on-campus">On-campus</SelectItem>
-              <SelectItem value="off-campus">Off-campus</SelectItem>
+              <SelectItem value="all">All Modes</SelectItem>
+              <SelectItem value="on_campus">On Campus</SelectItem>
+              <SelectItem value="off_campus">Off Campus</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Training Cards Grid */}
-        {filteredTrainings.length > 0 ? (
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : filteredTrainings.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredTrainings.map((training, index) => (
               <div
@@ -107,10 +111,7 @@ const TrainerDashboard: React.FC = () => {
                 className="animate-slide-up"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <TrainingCard
-                  training={training}
-                  onDelete={() => deleteTraining(training.id)}
-                />
+                <TrainingCard training={training} />
               </div>
             ))}
           </div>
@@ -123,11 +124,11 @@ const TrainerDashboard: React.FC = () => {
               No trainings found
             </h3>
             <p className="text-muted-foreground mb-6">
-              {searchQuery || categoryFilter !== 'all' 
+              {searchQuery || modeFilter !== 'all' 
                 ? 'Try adjusting your search or filters'
                 : 'Get started by creating your first training session'}
             </p>
-            {!searchQuery && categoryFilter === 'all' && (
+            {!searchQuery && modeFilter === 'all' && (
               <Button onClick={() => setIsFormOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Create Training
@@ -138,12 +139,14 @@ const TrainerDashboard: React.FC = () => {
       </main>
 
       {/* Training Form Modal */}
-      <TrainingForm
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        trainerId={user.id}
-        trainerName={user.name}
-      />
+      {user.trainerId && (
+        <TrainingForm
+          isOpen={isFormOpen}
+          onClose={() => setIsFormOpen(false)}
+          trainerId={user.trainerId}
+          onSuccess={refetch}
+        />
+      )}
     </div>
   );
 };
