@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sprout, Lock, Mail, AlertCircle } from 'lucide-react';
+import { Sprout, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login: React.FC = () => {
@@ -22,15 +22,15 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const result = await login(email, password);
+      if (result.success) {
         toast.success('Welcome back!');
         navigate('/dashboard');
       } else {
-        setError('Invalid credentials. Try demo accounts below.');
+        setError(result.error || 'Invalid credentials. Please try again.');
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -92,8 +92,8 @@ const Login: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                    <AlertCircle className="w-4 h-4" />
-                    {error}
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{error}</span>
                   </div>
                 )}
 
@@ -130,22 +130,21 @@ const Login: React.FC = () => {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  {isLoading ? 'Signing in...' : 'Sign In'}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
                 </Button>
               </form>
 
               <div className="mt-8 pt-6 border-t border-border">
-                <p className="text-sm text-muted-foreground mb-3">Demo Accounts (password: demo123)</p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                    <span className="font-medium">Trainer:</span>
-                    <code className="text-primary">trainer@agri.com</code>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                    <span className="font-medium">Manager:</span>
-                    <code className="text-primary">manager@agri.com</code>
-                  </div>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Contact your manager if you need access to the system.
+                </p>
               </div>
             </CardContent>
           </Card>

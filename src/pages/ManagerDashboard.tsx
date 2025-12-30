@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTraining } from '@/contexts/TrainingContext';
+import { useTrainers } from '@/hooks/useTrainers';
+import { useAllTrainings } from '@/hooks/useTrainings';
 import { StatsSidebar } from '@/components/StatsSidebar';
 import { TrainingCard } from '@/components/TrainingCard';
+import { AddTrainerModal } from '@/components/AddTrainerModal';
+import { TrainerCredentialsModal } from '@/components/TrainerCredentialsModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -10,39 +13,85 @@ import {
   Users,
   ChevronRight,
   ArrowLeft,
-  Search
+  Search,
+  UserPlus,
+  Eye,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-
-// Demo trainers list
-const TRAINERS = [
-  { id: '1', name: 'Rajesh Kumar', email: 'trainer@agri.com' },
-  { id: '2', name: 'Priya Sharma', email: 'trainer2@agri.com' },
-];
+import { Trainer } from '@/types';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 const ManagerDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const { getAllStats, getTrainerTrainings, getTrainerStats, trainings } = useTraining();
   const navigate = useNavigate();
-  const [selectedTrainerId, setSelectedTrainerId] = useState<string | null>(null);
+  const { trainers, isLoading: trainersLoading, deleteTrainer, refetch: refetchTrainers } = useTrainers();
+  const { trainings, isLoading: trainingsLoading, getTrainerTrainings, getTrainerStats, getAllStats, refetch: refetchTrainings } = useAllTrainings();
+  
+  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddTrainerOpen, setIsAddTrainerOpen] = useState(false);
+  const [credentialsTrainer, setCredentialsTrainer] = useState<Trainer | null>(null);
+  const [deleteTrainerId, setDeleteTrainerId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!user) return null;
 
   const overallStats = getAllStats();
-  const selectedTrainer = TRAINERS.find(t => t.id === selectedTrainerId);
-  const selectedTrainerStats = selectedTrainerId ? getTrainerStats(selectedTrainerId) : null;
-  const selectedTrainerTrainings = selectedTrainerId ? getTrainerTrainings(selectedTrainerId) : [];
+  const selectedTrainerStats = selectedTrainer ? getTrainerStats(selectedTrainer.id) : null;
+  const selectedTrainerTrainings = selectedTrainer ? getTrainerTrainings(selectedTrainer.id) : [];
 
-  const filteredTrainers = TRAINERS.filter(trainer =>
+  const filteredTrainers = trainers.filter(trainer =>
     trainer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     trainer.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
+  };
+
+  const handleDeleteTrainer = async () => {
+    if (!deleteTrainerId) return;
+    
+    setIsDeleting(true);
+    const result = await deleteTrainer(deleteTrainerId);
+    
+    if (result.success) {
+      toast.success('Trainer deleted successfully');
+    } else {
+      toast.error(result.error || 'Failed to delete trainer');
+    }
+    
+    setIsDeleting(false);
+    setDeleteTrainerId(null);
+  };
+
+  const handleDeleteTraining = async (trainingId: string) => {
+    const { error } = await supabase
+      .from('trainings')
+      .delete()
+      .eq('id', trainingId);
+
+    if (error) {
+      toast.error('Failed to delete training');
+    } else {
+      toast.success('Training deleted successfully');
+      refetchTrainings();
+    }
   };
 
   return (
@@ -56,11 +105,11 @@ const ManagerDashboard: React.FC = () => {
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            {selectedTrainerId && (
+            {selectedTrainer && (
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => setSelectedTrainerId(null)}
+                onClick={() => setSelectedTrainer(null)}
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
@@ -78,13 +127,21 @@ const ManagerDashboard: React.FC = () => {
               </p>
             </div>
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-3">
+            {!selectedTrainer && (
+              <Button variant="hero" onClick={() => setIsAddTrainerOpen(true)}>
+                <UserPlus className="w-4 h-4" />
+                Add Trainer
+              </Button>
+            )}
+            <Button variant="ghost" onClick={handleLogout}>
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
         </header>
 
-        {!selectedTrainerId ? (
+        {!selectedTrainer ? (
           <>
             {/* Search */}
             <div className="relative max-w-md mb-6">
@@ -97,81 +154,191 @@ const ManagerDashboard: React.FC = () => {
               />
             </div>
 
-            {/* Trainers Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredTrainers.map((trainer, index) => {
-                const trainerStats = getTrainerStats(trainer.id);
-                return (
-                  <Card
-                    key={trainer.id}
-                    className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 animate-slide-up"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                    onClick={() => setSelectedTrainerId(trainer.id)}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Users className="w-6 h-6 text-primary" />
+            {/* Loading State */}
+            {trainersLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              /* Trainers Grid */
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredTrainers.map((trainer, index) => {
+                  const trainerStats = getTrainerStats(trainer.id);
+                  return (
+                    <Card
+                      key={trainer.id}
+                      className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1 animate-slide-up"
+                      style={{ animationDelay: `${index * 100}ms` }}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div 
+                            className="flex items-center gap-3 cursor-pointer flex-1"
+                            onClick={() => setSelectedTrainer(trainer)}
+                          >
+                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Users className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{trainer.name}</CardTitle>
+                              <p className="text-sm text-muted-foreground">{trainer.email}</p>
+                            </div>
                           </div>
-                          <div>
-                            <CardTitle className="text-lg">{trainer.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground">{trainer.email}</p>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border">
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-primary">{trainerStats.totalTrainings}</p>
+                            <p className="text-xs text-muted-foreground">Trainings</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-accent">{trainerStats.totalFarmers}</p>
+                            <p className="text-xs text-muted-foreground">Farmers</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-success">{trainerStats.onCampusTrainings + trainerStats.offCampusTrainings}</p>
+                            <p className="text-xs text-muted-foreground">Sessions</p>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border">
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-primary">{trainerStats.totalTrainings}</p>
-                          <p className="text-xs text-muted-foreground">Trainings</p>
+                        <div className="flex gap-2 mt-4 pt-3 border-t border-border">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCredentialsTrainer(trainer);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTrainerId(trainer.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
                         </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-accent">{trainerStats.totalFarmers}</p>
-                          <p className="text-xs text-muted-foreground">Farmers</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-success">{trainerStats.onCampusTrainings + trainerStats.offCampusTrainings}</p>
-                          <p className="text-xs text-muted-foreground">Sessions</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                {filteredTrainers.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+                      <Users className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
+                      No trainers found
+                    </h3>
+                    <p className="text-muted-foreground mb-6">
+                      {searchQuery ? 'Try adjusting your search' : 'Add your first trainer to get started'}
+                    </p>
+                    {!searchQuery && (
+                      <Button onClick={() => setIsAddTrainerOpen(true)}>
+                        <UserPlus className="w-4 h-4" />
+                        Add Trainer
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           /* Selected Trainer's Trainings */
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {selectedTrainerTrainings.length > 0 ? (
-              selectedTrainerTrainings.map((training, index) => (
-                <div
-                  key={training.id}
-                  className="animate-slide-up"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <TrainingCard training={training} showActions={false} />
-                </div>
-              ))
+          <>
+            {trainingsLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
             ) : (
-              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
-                  <Users className="w-12 h-12 text-muted-foreground" />
-                </div>
-                <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
-                  No trainings yet
-                </h3>
-                <p className="text-muted-foreground">
-                  This trainer hasn't conducted any trainings yet.
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {selectedTrainerTrainings.length > 0 ? (
+                  selectedTrainerTrainings.map((training, index) => (
+                    <div
+                      key={training.id}
+                      className="animate-slide-up"
+                      style={{ animationDelay: `${index * 100}ms` }}
+                    >
+                      <TrainingCard 
+                        training={training} 
+                        showActions={true}
+                        onDelete={() => handleDeleteTraining(training.id)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+                      <Users className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
+                      No trainings yet
+                    </h3>
+                    <p className="text-muted-foreground">
+                      This trainer hasn't conducted any trainings yet.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
       </main>
+
+      {/* Add Trainer Modal */}
+      <AddTrainerModal
+        isOpen={isAddTrainerOpen}
+        onClose={() => setIsAddTrainerOpen(false)}
+        onSuccess={refetchTrainers}
+      />
+
+      {/* Trainer Credentials Modal */}
+      <TrainerCredentialsModal
+        trainer={credentialsTrainer}
+        isOpen={!!credentialsTrainer}
+        onClose={() => setCredentialsTrainer(null)}
+      />
+
+      {/* Delete Trainer Confirmation */}
+      <AlertDialog open={!!deleteTrainerId} onOpenChange={() => setDeleteTrainerId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Trainer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this trainer? This action cannot be undone and will also delete all their trainings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTrainer}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
