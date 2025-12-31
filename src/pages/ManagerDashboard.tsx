@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrainers } from '@/hooks/useTrainers';
 import { useAllTrainings } from '@/hooks/useTrainings';
-import { StatsSidebar } from '@/components/StatsSidebar';
+import { ModePanel } from '@/components/ModePanel';
 import { TrainingCard } from '@/components/TrainingCard';
 import { TrainingDetailModal } from '@/components/TrainingDetailModal';
 import { AddTrainerModal } from '@/components/AddTrainerModal';
@@ -66,8 +66,7 @@ const ManagerDashboard: React.FC = () => {
 
   if (!user) return null;
 
-  const overallStats = getAllStats();
-  const selectedTrainerStats = selectedTrainer ? getTrainerStats(selectedTrainer.id) : null;
+  // Stats replaced by ModePanel
   const selectedTrainerTrainings = selectedTrainer ? getTrainerTrainings(selectedTrainer.id) : [];
 
   const filteredTrainers = trainers.filter(trainer =>
@@ -131,10 +130,7 @@ const ManagerDashboard: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-background">
       {showSidebar && (
-        <StatsSidebar 
-          stats={selectedTrainerStats || overallStats} 
-          title={selectedTrainer ? `${selectedTrainer.name}'s Stats` : "Overall Statistics"} 
-        />
+        <ModePanel onLogout={handleLogout} />
       )}
 
       <main className="flex-1 p-8">
@@ -186,10 +182,7 @@ const ManagerDashboard: React.FC = () => {
            )}
          </div>
          <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={handleLogout}>
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
+            {/* Logout moved to ModePanel */}
           </div>
         </header>
 

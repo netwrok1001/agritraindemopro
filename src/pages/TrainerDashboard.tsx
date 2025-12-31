@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrainings } from '@/hooks/useTrainings';
-import { StatsSidebar } from '@/components/StatsSidebar';
+import { ModePanel } from '@/components/ModePanel';
 import { TrainingCard } from '@/components/TrainingCard';
 import { TrainingForm } from '@/components/TrainingForm';
 import { TrainingDetailModal } from '@/components/TrainingDetailModal';
@@ -34,8 +34,7 @@ const TrainerDashboard: React.FC = () => {
   const [selectedTraining, setSelectedTraining] = useState<TrainingEvent | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
 
-  const { trainings, isLoading, getStats, refetch } = useTrainings(user?.trainerId);
-  const stats = getStats();
+  const { trainings, isLoading, refetch } = useTrainings(user?.trainerId);
 
   if (!user) return null;
 
@@ -54,7 +53,7 @@ const TrainerDashboard: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-background">
       {showSidebar && (
-        <StatsSidebar stats={stats} title="My Statistics" />
+        <ModePanel onLogout={handleLogout} />
       )}
 
       <main className="flex-1 p-8">
@@ -83,10 +82,6 @@ const TrainerDashboard: React.FC = () => {
             <Button variant="hero" onClick={() => setIsFormOpen(true)}>
               <Plus className="w-4 h-4" />
               New Training
-            </Button>
-            <Button variant="ghost" onClick={handleLogout}>
-              <LogOut className="w-4 h-4" />
-              Logout
             </Button>
           </div>
         </header>
