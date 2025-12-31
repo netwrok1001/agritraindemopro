@@ -71,7 +71,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-hide-close>
+        <DialogContent className="w-[95vw] sm:w-auto max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto" data-hide-close>
           <DialogHeader className="relative pt-12">
             <Button
               size="icon"
@@ -82,7 +82,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
               <X className="w-5 h-5" />
             </Button>
             <div className="flex items-start justify-between gap-4">
-              <DialogTitle className="font-serif text-2xl">{training.title}</DialogTitle>
+              <DialogTitle className="font-serif text-xl sm:text-2xl leading-snug">{training.title}</DialogTitle>
               {isManager && (
                 <div className="flex items-center gap-2">
                   <Button
@@ -173,7 +173,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
             {/* Demographics */}
             <div>
               <h4 className="font-semibold mb-3">Demographics Breakdown</h4>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div className="bg-muted/50 p-3 rounded-lg text-center">
                   <p className="text-xl font-bold">{training.demographics_sc}</p>
                   <p className="text-xs text-muted-foreground uppercase">SC</p>
@@ -251,7 +251,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
                   <Image className="w-4 h-4" />
                   Images ({images.length})
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                   {images.map((file) => (
                     <div key={file.id} className="relative group aspect-video rounded-lg overflow-hidden bg-muted">
                       <img
@@ -288,7 +288,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
                   <Video className="w-4 h-4" />
                   Videos ({videos.length})
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   {videos.map((file) => (
                     <div key={file.id} className="relative rounded-lg overflow-hidden bg-muted">
                       <video
