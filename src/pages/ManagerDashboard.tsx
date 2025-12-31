@@ -7,6 +7,7 @@ import { TrainingCard } from '@/components/TrainingCard';
 import { TrainingDetailModal } from '@/components/TrainingDetailModal';
 import { AddTrainerModal } from '@/components/AddTrainerModal';
 import { TrainerCredentialsModal } from '@/components/TrainerCredentialsModal';
+import { DownloadCSVModal } from '@/components/DownloadCSVModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -19,7 +20,8 @@ import {
   Eye,
   Trash2,
   Loader2,
-  GraduationCap
+  GraduationCap,
+  Download
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -57,6 +59,9 @@ const ManagerDashboard: React.FC = () => {
   const [selectedTraining, setSelectedTraining] = useState<TrainingEvent | null>(null);
   const [deleteTrainingId, setDeleteTrainingId] = useState<string | null>(null);
   const [isDeletingTraining, setIsDeletingTraining] = useState(false);
+  
+  // CSV Modal state
+  const [isCSVModalOpen, setIsCSVModalOpen] = useState(false);
 
   if (!user) return null;
 
@@ -157,10 +162,16 @@ const ManagerDashboard: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             {!selectedTrainer && (
-              <Button variant="hero" onClick={() => setIsAddTrainerOpen(true)}>
-                <UserPlus className="w-4 h-4" />
-                Add Trainer
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setIsCSVModalOpen(true)}>
+                  <Download className="w-4 h-4" />
+                  Download CSV
+                </Button>
+                <Button variant="hero" onClick={() => setIsAddTrainerOpen(true)}>
+                  <UserPlus className="w-4 h-4" />
+                  Add Trainer
+                </Button>
+              </>
             )}
             <Button variant="ghost" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
@@ -479,6 +490,14 @@ const ManagerDashboard: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Download CSV Modal */}
+      <DownloadCSVModal
+        isOpen={isCSVModalOpen}
+        onClose={() => setIsCSVModalOpen(false)}
+        trainers={trainers}
+        trainings={trainings}
+      />
     </div>
   );
 };
