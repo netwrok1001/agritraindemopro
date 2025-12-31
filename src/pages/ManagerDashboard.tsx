@@ -4,6 +4,7 @@ import { useTrainers } from '@/hooks/useTrainers';
 import { useAllTrainings } from '@/hooks/useTrainings';
 import { StatsSidebar } from '@/components/StatsSidebar';
 import { TrainingCard } from '@/components/TrainingCard';
+import { TrainingDetailModal } from '@/components/TrainingDetailModal';
 import { AddTrainerModal } from '@/components/AddTrainerModal';
 import { TrainerCredentialsModal } from '@/components/TrainerCredentialsModal';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-import { Trainer } from '@/types';
+import { Trainer, TrainingEvent } from '@/types';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -47,6 +48,11 @@ const ManagerDashboard: React.FC = () => {
   const [credentialsTrainer, setCredentialsTrainer] = useState<Trainer | null>(null);
   const [deleteTrainerId, setDeleteTrainerId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Training detail state
+  const [selectedTraining, setSelectedTraining] = useState<TrainingEvent | null>(null);
+  const [deleteTrainingId, setDeleteTrainingId] = useState<string | null>(null);
+  const [isDeletingTraining, setIsDeletingTraining] = useState(false);
 
   if (!user) return null;
 
@@ -80,18 +86,30 @@ const ManagerDashboard: React.FC = () => {
     setDeleteTrainerId(null);
   };
 
-  const handleDeleteTraining = async (trainingId: string) => {
+  const handleDeleteTraining = async () => {
+    if (!deleteTrainingId) return;
+    
+    setIsDeletingTraining(true);
     const { error } = await supabase
       .from('trainings')
       .delete()
-      .eq('id', trainingId);
+      .eq('id', deleteTrainingId);
 
     if (error) {
       toast.error('Failed to delete training');
     } else {
       toast.success('Training deleted successfully');
       refetchTrainings();
+      setSelectedTraining(null);
     }
+    
+    setIsDeletingTraining(false);
+    setDeleteTrainingId(null);
+  };
+
+  const handleEditTraining = () => {
+    // For now, show a toast - edit functionality would require a separate form
+    toast.info('Edit functionality coming soon');
   };
 
   return (
@@ -274,7 +292,8 @@ const ManagerDashboard: React.FC = () => {
                       <TrainingCard 
                         training={training} 
                         showActions={true}
-                        onDelete={() => handleDeleteTraining(training.id)}
+                        onClick={() => setSelectedTraining(training)}
+                        onDelete={() => setDeleteTrainingId(training.id)}
                       />
                     </div>
                   ))
@@ -311,6 +330,20 @@ const ManagerDashboard: React.FC = () => {
         onClose={() => setCredentialsTrainer(null)}
       />
 
+      {/* Training Detail Modal - With Edit/Delete for Managers */}
+      <TrainingDetailModal
+        training={selectedTraining}
+        isOpen={!!selectedTraining}
+        onClose={() => setSelectedTraining(null)}
+        isManager={true}
+        onEdit={handleEditTraining}
+        onDelete={() => {
+          if (selectedTraining) {
+            setDeleteTrainingId(selectedTraining.id);
+          }
+        }}
+      />
+
       {/* Delete Trainer Confirmation */}
       <AlertDialog open={!!deleteTrainerId} onOpenChange={() => setDeleteTrainerId(null)}>
         <AlertDialogContent>
@@ -334,6 +367,35 @@ const ManagerDashboard: React.FC = () => {
                 </>
               ) : (
                 'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Training Confirmation */}
+      <AlertDialog open={!!deleteTrainingId} onOpenChange={() => setDeleteTrainingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Training</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this training? This action cannot be undone and will remove all associated media and expenses.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTraining}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeletingTraining}
+            >
+              {isDeletingTraining ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Training'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

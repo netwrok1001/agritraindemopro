@@ -17,12 +17,14 @@ import { format } from 'date-fns';
 
 interface TrainingCardProps {
   training: TrainingEvent;
+  onClick?: () => void;
   onDelete?: () => void;
   showActions?: boolean;
 }
 
 export const TrainingCard: React.FC<TrainingCardProps> = ({
   training,
+  onClick,
   onDelete,
   showActions = true
 }) => {
@@ -42,7 +44,10 @@ export const TrainingCard: React.FC<TrainingCardProps> = ({
   const mediaCount = training.media?.length || 0;
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+    <Card 
+      className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden cursor-pointer"
+      onClick={onClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">

@@ -4,6 +4,8 @@ import { useTrainings } from '@/hooks/useTrainings';
 import { StatsSidebar } from '@/components/StatsSidebar';
 import { TrainingCard } from '@/components/TrainingCard';
 import { TrainingForm } from '@/components/TrainingForm';
+import { TrainingDetailModal } from '@/components/TrainingDetailModal';
+import { TrainingEvent } from '@/types';
 import { Button } from '@/components/ui/button';
 import { 
   Plus, 
@@ -29,6 +31,7 @@ const TrainerDashboard: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [modeFilter, setModeFilter] = useState<string>('all');
+  const [selectedTraining, setSelectedTraining] = useState<TrainingEvent | null>(null);
 
   const { trainings, isLoading, getStats, refetch } = useTrainings(user?.trainerId);
   const stats = getStats();
@@ -111,7 +114,11 @@ const TrainerDashboard: React.FC = () => {
                 className="animate-slide-up"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <TrainingCard training={training} />
+                <TrainingCard 
+                  training={training}
+                  onClick={() => setSelectedTraining(training)}
+                  showActions={false}
+                />
               </div>
             ))}
           </div>
@@ -147,6 +154,14 @@ const TrainerDashboard: React.FC = () => {
           onSuccess={refetch}
         />
       )}
+
+      {/* Training Detail Modal - View Only for Trainers */}
+      <TrainingDetailModal
+        training={selectedTraining}
+        isOpen={!!selectedTraining}
+        onClose={() => setSelectedTraining(null)}
+        isManager={false}
+      />
     </div>
   );
 };
