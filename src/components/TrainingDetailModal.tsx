@@ -71,8 +71,16 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-hide-close>
           <DialogHeader>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="absolute left-4 top-4"
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+            >
+              <X className="w-5 h-5" />
+            </Button>
             <div className="flex items-start justify-between gap-4">
               <DialogTitle className="font-serif text-2xl">{training.title}</DialogTitle>
               {isManager && (
