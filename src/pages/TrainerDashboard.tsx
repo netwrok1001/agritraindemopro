@@ -32,6 +32,7 @@ const TrainerDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [modeFilter, setModeFilter] = useState<string>('all');
   const [selectedTraining, setSelectedTraining] = useState<TrainingEvent | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const { trainings, isLoading, getStats, refetch } = useTrainings(user?.trainerId);
   const stats = getStats();
@@ -52,18 +53,31 @@ const TrainerDashboard: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <StatsSidebar stats={stats} title="My Statistics" />
+      {showSidebar && (
+        <StatsSidebar stats={stats} title="My Statistics" />
+      )}
 
       <main className="flex-1 p-8">
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">
-              Welcome, {user.name}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your agricultural training sessions
-            </p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSidebar((s) => !s)}
+              aria-label="Toggle statistics panel"
+            >
+              <span className="sr-only">Toggle statistics panel</span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.75 6.75h16.5a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0 0 1.5Zm0 6h16.5a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0 0 1.5Zm0 6h16.5a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0 0 1.5Z"/></svg>
+            </Button>
+            <div>
+              <h1 className="font-serif text-3xl font-bold text-foreground">
+                Welcome, {user.name}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Manage your agricultural training sessions
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="hero" onClick={() => setIsFormOpen(true)}>

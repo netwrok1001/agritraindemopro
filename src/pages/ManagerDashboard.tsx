@@ -48,6 +48,7 @@ const ManagerDashboard: React.FC = () => {
   const { trainings, isLoading: trainingsLoading, getTrainerTrainings, getTrainerStats, getAllStats, refetch: refetchTrainings } = useAllTrainings();
   
   const [viewMode, setViewMode] = useState<ViewMode>('trainers');
+  const [showSidebar, setShowSidebar] = useState(false);
   const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddTrainerOpen, setIsAddTrainerOpen] = useState(false);
@@ -129,15 +130,27 @@ const ManagerDashboard: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <StatsSidebar 
-        stats={selectedTrainerStats || overallStats} 
-        title={selectedTrainer ? `${selectedTrainer.name}'s Stats` : "Overall Statistics"} 
-      />
+      {showSidebar && (
+        <StatsSidebar 
+          stats={selectedTrainerStats || overallStats} 
+          title={selectedTrainer ? `${selectedTrainer.name}'s Stats` : "Overall Statistics"} 
+        />
+      )}
 
       <main className="flex-1 p-8">
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSidebar((s) => !s)}
+              aria-label="Toggle statistics panel"
+            >
+              <span className="sr-only">Toggle statistics panel</span>
+              {/* three-line icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.75 6.75h16.5a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0 0 1.5Zm0 6h16.5a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0 0 1.5Zm0 6h16.5a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0 0 1.5Z"/></svg>
+            </Button>
             {selectedTrainer && (
               <Button 
                 variant="ghost" 
@@ -159,20 +172,20 @@ const ManagerDashboard: React.FC = () => {
                   : 'Overview of all trainers and their activities'}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {!selectedTrainer && (
-              <>
-                <Button variant="outline" onClick={() => setIsCSVModalOpen(true)}>
-                  <Download className="w-4 h-4" />
-                  Download CSV
-                </Button>
-                <Button variant="hero" onClick={() => setIsAddTrainerOpen(true)}>
-                  <UserPlus className="w-4 h-4" />
-                  Add Trainer
-                </Button>
-              </>
-            )}
+           {!selectedTrainer && (
+             <div className="mt-4 flex items-center gap-3">
+               <Button variant="outline" onClick={() => setIsCSVModalOpen(true)}>
+                 <Download className="w-4 h-4" />
+                 Download CSV
+               </Button>
+               <Button variant="hero" onClick={() => setIsAddTrainerOpen(true)}>
+                 <UserPlus className="w-4 h-4" />
+                 Add Trainer
+               </Button>
+             </div>
+           )}
+         </div>
+         <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               Logout
