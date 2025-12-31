@@ -72,7 +72,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-hide-close>
-          <DialogHeader>
+          <DialogHeader className="relative pt-12">
             <Button
               size="icon"
               variant="ghost"
