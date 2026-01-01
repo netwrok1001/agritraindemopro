@@ -48,7 +48,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   const [extError, setExtError] = useState<string | null>(null);
   const [extData, setExtData] = useState<{ title: string | null; description: string | null; partner: string | null; media_urls: string | null } | null>(null);
 
-  if (!training) return null;
+  // Note: Do not early-return before hooks; guard effects internally instead.
 
   // Fetch extension activity details from extension_activities table when modal opens
   React.useEffect(() => {
@@ -98,7 +98,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   const images = training.media?.filter(m => m.file_type.startsWith('image')) || [];
   const videos = training.media?.filter(m => m.file_type.startsWith('video')) || [];
 
-  return (
+  return training ? (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-[95vw] sm:w-auto max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto" data-hide-close>
@@ -470,5 +470,5 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
         </div>
       )}
     </>
-  );
+  ) : null;
 };
