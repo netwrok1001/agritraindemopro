@@ -47,6 +47,11 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   const [extLoading, setExtLoading] = useState(false);
   const [extError, setExtError] = useState<string | null>(null);
   const [extData, setExtData] = useState<{ title: string | null; description: string | null; partner: string | null; media_urls: string | null } | null>(null);
+  const [isManagerLocal, setIsManagerLocal] = useState<boolean>(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editPartner, setEditPartner] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
 
   if (!training) return null;
 
@@ -63,8 +68,8 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
           .select('title, description, partner, media_urls')
           .eq('training_id', training.id)
           .single();
-        if (error) throw error;
-        if (!cancelled) setExtData(data as any);
+        if (error && error.code !== 'PGRST116') throw error; // not found ok
+        if (!cancelled) setExtData((data as any) || null);
       } catch (e: any) {
         if (!cancelled) setExtError(e?.message || 'Failed to load extension activity');
       } finally {
@@ -74,6 +79,29 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
     if (isOpen) load();
     return () => { cancelled = true; };
   }, [isOpen, training?.id]);
+
+  // Determine manager/admin via user_role table
+  React.useEffect(() => {
+    let cancelled = false;
+    const checkRole = async () => {
+      try {
+        const { data: session } = await supabase.auth.getUser();
+        const uid = session?.user?.id;
+        if (!uid) { if (!cancelled) setIsManagerLocal(false); return; }
+        const { data, error } = await supabase
+          .from('user_role')
+          .select('role')
+          .eq('user_id', uid)
+          .in('role', ['manager','admin']);
+        if (error) throw error;
+        if (!cancelled) setIsManagerLocal((data?.length || 0) > 0);
+      } catch {
+        if (!cancelled) setIsManagerLocal(false);
+      }
+    };
+    if (isOpen) checkRole();
+    return () => { cancelled = true; };
+  }, [isOpen]);
 
   const totalExpenses = training.expenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
 
@@ -264,7 +292,19 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
             {/* Extension Activity */}
             {(training.extension_activity || extData || extLoading || extError) && (
               <div ref={extSectionRef}>
-                <h4 className="font-semibold mb-3">Extension Activity</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold">Extension Activity</h4>
+                  {isManagerLocal && (
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setEditTitle(extData?.title || training.extension_activity?.title || '');
+                      setEditPartner(extData?.partner || training.extension_activity?.partner || '');
+                      setEditDescription(extData?.description || training.extension_activity?.description || '');
+                      setEditOpen(true);
+                    }}>
+                      Edit Extension Activity
+                    </Button>
+                  )}
+                </div>
                 {extLoading && <p className="text-sm text-muted-foreground">Loading extension activity…</p>}
                 {extError && <p className="text-sm text-red-500">{extError}</p>}
                 <div className="space-y-2">
@@ -446,6 +486,67 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Extension Activity Dialog */}
+      {editOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-lg bg-background p-4 shadow">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">Edit Extension Activity</h3>
+              <Button size="icon" variant="ghost" onClick={() => setEditOpen(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">Title</label>
+                <input className="mt-1 w-full rounded-md border px-3 py-2"
+                       value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Partner</label>
+                <input className="mt-1 w-full rounded-md border px-3 py-2"
+                       value={editPartner} onChange={(e) => setEditPartner(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <textarea className="mt-1 w-full rounded-md border px-3 py-2"
+                          rows={4}
+                          value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={async () => {
+                try {
+                  if (!training?.id) return;
+                  const payload: any = {
+                    training_id: training.id,
+                    title: editTitle || null,
+                    partner: editPartner || null,
+                    description: editDescription || null,
+                  };
+                  // Upsert ensures row exists
+                  const { error } = await supabase
+                    .from('extension_activities')
+                    .upsert(payload, { onConflict: 'training_id' });
+                  if (error) throw error;
+                  // Refresh and close
+                  const { data } = await supabase
+                    .from('extension_activities')
+                    .select('title, description, partner, media_urls')
+                    .eq('training_id', training.id)
+                    .single();
+                  setExtData((data as any) || null);
+                  setEditOpen(false);
+                } catch (e) {
+                  console.error('Failed to save extension activity:', e);
+                }
+              }}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full-size Image Viewer */}
       {selectedMedia && (
