@@ -23,6 +23,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TrainingDetailModalProps {
   training: TrainingEvent | null;
@@ -43,8 +44,36 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
 }) => {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const extSectionRef = useRef<HTMLDivElement | null>(null);
+  const [extLoading, setExtLoading] = useState(false);
+  const [extError, setExtError] = useState<string | null>(null);
+  const [extData, setExtData] = useState<{ title: string | null; description: string | null; partner: string | null; media_urls: string | null } | null>(null);
 
   if (!training) return null;
+
+  // Fetch extension activity details from extension_activities table when modal opens
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!training?.id) return;
+      setExtLoading(true);
+      setExtError(null);
+      try {
+        const { data, error } = await supabase
+          .from('extension_activities')
+          .select('title, description, partner, media_urls')
+          .eq('training_id', training.id)
+          .single();
+        if (error) throw error;
+        if (!cancelled) setExtData(data as any);
+      } catch (e: any) {
+        if (!cancelled) setExtError(e?.message || 'Failed to load extension activity');
+      } finally {
+        if (!cancelled) setExtLoading(false);
+      }
+    };
+    if (isOpen) load();
+    return () => { cancelled = true; };
+  }, [isOpen, training?.id]);
 
   const totalExpenses = training.expenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
 
@@ -233,43 +262,57 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
             )}
 
             {/* Extension Activity */}
-            {training.extension_activity && (
+            {(training.extension_activity || extData || extLoading || extError) && (
               <div ref={extSectionRef}>
                 <h4 className="font-semibold mb-3">Extension Activity</h4>
+                {extLoading && <p className="text-sm text-muted-foreground">Loading extension activity…</p>}
+                {extError && <p className="text-sm text-red-500">{extError}</p>}
                 <div className="space-y-2">
-                  {(training.extension_activity.title || training.extension_activity.partner) && (
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      {training.extension_activity.title && (
+                  {/* Header row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    {extData?.title ? (
+                      <p className="font-medium">{extData.title}</p>
+                    ) : (
+                      training.extension_activity && training.extension_activity.title && (
                         <p className="font-medium">{training.extension_activity.title}</p>
-                      )}
-                      {training.extension_activity.partner && (
+                      )
+                    )}
+                    {extData?.partner ? (
+                      <Badge variant="outline">Partner: {extData.partner}</Badge>
+                    ) : (
+                      training.extension_activity && training.extension_activity.partner && (
                         <Badge variant="outline">Partner: {training.extension_activity.partner}</Badge>
-                      )}
-                    </div>
-                  )}
-                  {training.extension_activity.description && (
-                    <p className="text-sm text-muted-foreground">{training.extension_activity.description}</p>
+                      )
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {extData?.description ? (
+                    <p className="text-sm text-muted-foreground">{extData.description}</p>
+                  ) : (
+                    training.extension_activity && training.extension_activity.description && (
+                      <p className="text-sm text-muted-foreground">{training.extension_activity.description}</p>
+                    )
                   )}
 
-                  {/* Extension Activity Media */}
-                  {Array.isArray(training.extension_activity.media) && training.extension_activity.media.length > 0 && (
+                  {/* Media from extData.media_urls (comma-separated) */}
+                  {extData?.media_urls && extData.media_urls.trim().length > 0 && (
                     <div className="mt-3 space-y-4">
-                      {/* Ext Images */}
-                      {training.extension_activity.media.some(m => m.type === 'image') && (
+                      {extData.media_urls.split(',').map(s => s.trim()).filter(Boolean).some(u => /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(u)) && (
                         <div>
                           <h5 className="font-medium mb-2 flex items-center gap-2">
                             <Image className="w-4 h-4" />
-                            Extension Images ({training.extension_activity.media.filter(m => m.type === 'image').length})
+                            Extension Images
                           </h5>
                           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                            {training.extension_activity.media.filter(m => m.type === 'image').map((m, idx) => (
+                            {extData.media_urls.split(',').map(s => s.trim()).filter(Boolean).filter(u => /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(u)).map((url, idx) => (
                               <div key={`ext-img-${idx}`} className="relative group aspect-video rounded-lg overflow-hidden bg-muted">
-                                <img src={m.url} alt={m.name || `Extension image ${idx+1}`} className="w-full h-full object-cover" />
+                                <img src={url} alt={`Extension image ${idx+1}`} className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                  <Button size="icon" variant="secondary" onClick={() => setSelectedMedia(m.url)}>
+                                  <Button size="icon" variant="secondary" onClick={() => setSelectedMedia(url)}>
                                     <ZoomIn className="w-4 h-4" />
                                   </Button>
-                                  <Button size="icon" variant="secondary" onClick={() => handleDownload(m.url, m.name || `extension-image-${idx+1}.jpg`)}>
+                                  <Button size="icon" variant="secondary" onClick={() => handleDownload(url, `extension-image-${idx+1}.jpg`)}>
                                     <Download className="w-4 h-4" />
                                   </Button>
                                 </div>
@@ -279,20 +322,19 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
                         </div>
                       )}
 
-                      {/* Ext Videos */}
-                      {training.extension_activity.media.some(m => m.type === 'video') && (
+                      {extData.media_urls.split(',').map(s => s.trim()).filter(Boolean).some(u => /\.(mp4|mov|m4v|webm|ogg)(\?|$)/i.test(u)) && (
                         <div>
                           <h5 className="font-medium mb-2 flex items-center gap-2">
                             <Video className="w-4 h-4" />
-                            Extension Videos ({training.extension_activity.media.filter(m => m.type === 'video').length})
+                            Extension Videos
                           </h5>
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-                            {training.extension_activity.media.filter(m => m.type === 'video').map((m, idx) => (
+                            {extData.media_urls.split(',').map(s => s.trim()).filter(Boolean).filter(u => /\.(mp4|mov|m4v|webm|ogg)(\?|$)/i.test(u)).map((url, idx) => (
                               <div key={`ext-vid-${idx}`} className="relative rounded-lg overflow-hidden bg-muted">
-                                <video src={m.url} controls className="w-full aspect-video object-cover" />
+                                <video src={url} controls className="w-full aspect-video object-cover" />
                                 <div className="p-2 flex items-center justify-between bg-muted/80">
-                                  <span className="text-sm truncate flex-1">{m.name || `extension-video-${idx+1}.mp4`}</span>
-                                  <Button size="icon" variant="ghost" onClick={() => handleDownload(m.url, m.name || `extension-video-${idx+1}.mp4`)}>
+                                  <span className="text-sm truncate flex-1">{url.split('/').pop() || `extension-video-${idx+1}.mp4`}</span>
+                                  <Button size="icon" variant="ghost" onClick={() => handleDownload(url, url.split('/').pop() || `extension-video-${idx+1}.mp4`)}>
                                     <Download className="w-4 h-4" />
                                   </Button>
                                 </div>
