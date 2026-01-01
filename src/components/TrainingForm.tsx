@@ -145,6 +145,39 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
     setMediaPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Extension activity media handlers
+  const handleExtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles: File[] = [];
+    const newPreviews: { file: File; url: string; type: string }[] = [];
+
+    Array.from(files).forEach((file) => {
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+
+      if (isImage || isVideo) {
+        newFiles.push(file);
+        newPreviews.push({
+          file,
+          url: URL.createObjectURL(file),
+          type: isImage ? 'image' : 'video',
+        });
+      }
+    });
+
+    setExtMediaFiles((prev) => [...prev, ...newFiles]);
+    setExtMediaPreviews((prev) => [...prev, ...newPreviews]);
+    toast.success(`${newFiles.length} extension file(s) added`);
+  };
+
+  const removeExtMedia = (index: number) => {
+    URL.revokeObjectURL(extMediaPreviews[index].url);
+    setExtMediaFiles((prev) => prev.filter((_, i) => i !== index));
+    setExtMediaPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const addExpense = () => {
     if (expenseCategories.length > 0) {
       setExpenses(prev => [...prev, { 
@@ -791,4 +824,3 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
 // Extension Activity Sub-Form overlay inside the dialog
 // We render it conditionally at the end so it overlays on top of the dialog content
 export const TrainingFormWithExtension = TrainingForm;
-};
