@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { TrainingType, TrainingMode, ExpenseCategory, TRAINING_TYPE_LABELS, TRAINING_MODE_LABELS } from '@/types';
+import { TrainingType, TrainingMode, ExpenseCategory, TRAINING_TYPE_LABELS, TRAINING_MODE_LABELS, ExtensionActivityMedia } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -362,6 +362,18 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
         <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-sm">
           {trainingMode && TRAINING_MODE_LABELS[trainingMode]}
         </span>
+      </div>
+
+      {/* Extension Activity trigger */}
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => toast.info('Extension activity coming soon')}
+        >
+          + extension activity
+        </Button>
       </div>
 
       {/* Basic Info */}
