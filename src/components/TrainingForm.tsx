@@ -56,6 +56,14 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   
+  // Extension activity state
+  const [showExtension, setShowExtension] = useState(false);
+  const [extTitle, setExtTitle] = useState('');
+  const [extDescription, setExtDescription] = useState('');
+  const [extPartner, setExtPartner] = useState('');
+  const [extMediaFiles, setExtMediaFiles] = useState<File[]>([]);
+  const [extMediaPreviews, setExtMediaPreviews] = useState<{ file: File; url: string; type: string }[]>([]);
+  
   // Form state
   const [trainingType, setTrainingType] = useState<TrainingType | null>(null);
   const [trainingMode, setTrainingMode] = useState<TrainingMode | null>(null);
@@ -190,14 +198,22 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
           demographics_obc: parseInt(demographics.obc) || 0,
           gps_lat: gpsLat ? parseFloat(gpsLat) : null,
           gps_lng: gpsLng ? parseFloat(gpsLng) : null,
-          gps_address: gpsAddress || null
+          gps_address: gpsAddress || null,
+          extension_activity: (extTitle || extDescription || extPartner || extMediaFiles.length > 0)
+            ? {
+                title: extTitle || null,
+                description: extDescription || null,
+                partner: extPartner || null,
+                media: []
+              }
+            : null
         })
         .select()
         .single();
 
       if (trainingError) throw trainingError;
 
-      // Upload media files
+      // Upload training media files
       for (const file of mediaFiles) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${training.id}/${Date.now()}.${fileExt}`;
@@ -218,6 +234,42 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
             file_name: file.name
           });
         }
+      }
+
+      // Upload extension activity media (store URLs inside extension_activity JSON)
+      let extMedia: ExtensionActivityMedia[] = [];
+      if (extMediaFiles.length > 0) {
+        for (const file of extMediaFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${training.id}/extension/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from('training-media')
+            .upload(fileName, file);
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('training-media')
+              .getPublicUrl(fileName);
+            extMedia.push({
+              url: publicUrl,
+              type: file.type.startsWith('image/') ? 'image' : 'video',
+              name: file.name
+            });
+          }
+        }
+      }
+
+      // If any extension activity data exists, update the training with full JSON including media
+      if (extTitle || extDescription || extPartner || extMedia.length > 0) {
+        const extensionPayload = {
+          title: extTitle || null,
+          description: extDescription || null,
+          partner: extPartner || null,
+          media: extMedia
+        };
+        await supabase
+          .from('trainings')
+          .update({ extension_activity: extensionPayload })
+          .eq('id', training.id);
       }
 
       // Add expenses
@@ -260,6 +312,14 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
     setMediaFiles([]);
     setMediaPreviews([]);
     setExpenses([]);
+    // reset extension activity state
+    setShowExtension(false);
+    setExtTitle('');
+    setExtDescription('');
+    setExtPartner('');
+    extMediaPreviews.forEach(p => URL.revokeObjectURL(p.url));
+    setExtMediaFiles([]);
+    setExtMediaPreviews([]);
   };
 
   const handleClose = () => {
@@ -370,7 +430,7 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => toast.info('Extension activity coming soon')}
+          onClick={() => setShowExtension(true)}
         >
           + extension activity
         </Button>
@@ -642,7 +702,7 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="relative max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">Create New Training</DialogTitle>
           <DialogDescription>
@@ -657,7 +717,78 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
           {step === 'mode' && renderModeSelection()}
           {step === 'details' && renderDetailsForm()}
         </div>
+
+        {showExtension && (
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm p-6 overflow-y-auto">
+            <div className="space-y-4">
+              <h3 className="font-serif text-xl">Extension Activity</h3>
+
+              <div>
+                <Label htmlFor="ext-title">Title</Label>
+                <Input id="ext-title" value={extTitle} onChange={(e) => setExtTitle(e.target.value)} placeholder="e.g., Field visit to demo farm" />
+              </div>
+
+              <div>
+                <Label htmlFor="ext-desc">Description</Label>
+                <Textarea id="ext-desc" value={extDescription} onChange={(e) => setExtDescription(e.target.value)} rows={4} placeholder="Describe the extension activity..." />
+              </div>
+
+              <div>
+                <Label htmlFor="ext-partner">Organizing Partner</Label>
+                <Input id="ext-partner" value={extPartner} onChange={(e) => setExtPartner(e.target.value)} placeholder="e.g., Dept. of Agriculture" />
+              </div>
+
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  Media Upload (Extension Activity)
+                </Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                  <input type="file" id="ext-media" multiple accept="image/*,video/*" onChange={handleExtFileUpload} className="hidden" />
+                  <label htmlFor="ext-media" className="cursor-pointer">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex gap-2">
+                        <Image className="w-8 h-8 text-muted-foreground" />
+                        <Video className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">Click to upload photos or videos</p>
+                      <p className="text-xs text-muted-foreground">Supports JPG, PNG, MP4, MOV</p>
+                    </div>
+                  </label>
+                </div>
+
+                {extMediaPreviews.length > 0 && (
+                  <div className="grid grid-cols-4 gap-3">
+                    {extMediaPreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        {preview.type === 'image' ? (
+                          <img src={preview.url} alt={preview.file.name} className="w-full h-20 object-cover rounded-lg" />
+                        ) : (
+                          <div className="w-full h-20 bg-muted rounded-lg flex items-center justify-center">
+                            <Video className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <button type="button" onClick={() => removeExtMedia(index)} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowExtension(false)}>Done</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
+}
+
+// Extension Activity Sub-Form overlay inside the dialog
+// We render it conditionally at the end so it overlays on top of the dialog content
+export const TrainingFormWithExtension = TrainingForm;
 };
