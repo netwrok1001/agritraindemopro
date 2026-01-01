@@ -96,8 +96,8 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
     }
   };
 
-  const images = training.media?.filter(m => m.file_type.startsWith('image')) || [];
-  const videos = training.media?.filter(m => m.file_type.startsWith('video')) || [];
+  const images = (training?.media ?? []).filter(m => m.file_type?.startsWith('image'));
+  const videos = (training?.media ?? []).filter(m => m.file_type?.startsWith('video'));
 
   // Render nothing if closed or missing training
   if (!isOpen || !training) return null;
@@ -354,14 +354,14 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
             )}
 
             {/* Expenses */}
-            {training.expenses && training.expenses.length > 0 && (
+            {(training?.expenses ?? []).length > 0 && (
               <div>
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <IndianRupee className="w-4 h-4" />
                   Expenses ({training.expenses.length} items)
                 </h4>
                 <div className="space-y-2">
-                  {training.expenses.map((expense) => (
+                  {(training?.expenses ?? []).map((expense) => (
                     <div key={expense.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                       <div>
                         <p className="font-medium">{expense.expense_name}</p>
