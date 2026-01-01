@@ -8,6 +8,60 @@ export const useTrainings = (trainerId?: string) => {
   const [isLoading, setIsLoading] = useState(true);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
 
+  const inferMediaType = (url: string): 'image' | 'video' => {
+    const lower = url.toLowerCase();
+    if (/(\.jpe?g|\.png|\.gif|\.webp|\.bmp|\.svg)(\?|$)/.test(lower)) return 'image';
+    if (/(\.mp4|\.mov|\.m4v|\.webm|\.ogg)(\?|$)/.test(lower)) return 'video';
+    // default to image to keep UI simple
+    return 'image';
+  };
+
+  const mapExtensionActivities = async (rows: any[]) => {
+    if (!rows || rows.length === 0) return [] as any[];
+    const ids = rows.map(r => r.id).filter(Boolean);
+    if (ids.length === 0) return rows as any[];
+
+    const { data: extRows, error: extErr } = await supabase
+      .from('extension_activities')
+      .select('*')
+      .in('training_id', ids);
+
+    if (extErr) {
+      console.warn('Failed to fetch extension_activities, leaving trainings as-is:', extErr);
+      return rows as any[];
+    }
+
+    const byTrainingId = new Map<string, any>();
+    (extRows || []).forEach((r: any) => byTrainingId.set(r.training_id, r));
+
+    const mapped = rows.map((t: any) => {
+      const ext = byTrainingId.get(t.id);
+      if (!ext) {
+        // Fallback: if existing JSONB extension_activity is present on trainings, keep it
+        return t;
+      }
+      const urls = typeof ext.media_urls === 'string' && ext.media_urls.length > 0
+        ? ext.media_urls.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const media = urls.map((u: string) => ({
+        url: u,
+        type: inferMediaType(u),
+        name: u.split('/').pop() || undefined,
+      }));
+      return {
+        ...t,
+        extension_activity: {
+          title: ext.title ?? null,
+          description: ext.description ?? null,
+          partner: ext.partner ?? null,
+          media,
+        },
+      };
+    });
+
+    return mapped as any[];
+  };
+
   const fetchTrainings = async () => {
     try {
       let query = supabase
@@ -27,7 +81,8 @@ export const useTrainings = (trainerId?: string) => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setTrainings(data || []);
+      const withExt = await mapExtensionActivities(data || []);
+      setTrainings(withExt as any);
     } catch (error: any) {
       console.error('Error fetching trainings:', error);
       toast.error('Failed to fetch trainings');
@@ -111,7 +166,8 @@ export const useAllTrainings = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTrainings(data || []);
+      const withExt = await mapExtensionActivities(data || []);
+      setTrainings(withExt as any);
     } catch (error: any) {
       console.error('Error fetching all trainings:', error);
     } finally {

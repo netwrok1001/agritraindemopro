@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { TrainingEvent, TRAINING_TYPE_LABELS, TRAINING_MODE_LABELS } from '@/types';
 import {
   Dialog,
@@ -42,6 +42,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   onDelete
 }) => {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const extSectionRef = useRef<HTMLDivElement | null>(null);
 
   if (!training) return null;
 
@@ -83,32 +84,46 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
             </Button>
             <div className="flex items-start justify-between gap-4">
               <DialogTitle className="font-serif text-xl sm:text-2xl leading-snug">{training.title}</DialogTitle>
-              {isManager && (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {training.extension_activity && (
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onEdit?.();
+                      extSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }}
                   >
-                    <Pencil className="w-4 h-4 mr-1" />
-                    Edit
+                    See Extension Activity
                   </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete?.();
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              )}
+                )}
+                {isManager && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit?.();
+                      }}
+                    >
+                      <Pencil className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete?.();
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </DialogHeader>
 
@@ -214,6 +229,81 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
                     View on Google Maps ({training.gps_lat}, {training.gps_lng})
                   </a>
                 )}
+              </div>
+            )}
+
+            {/* Extension Activity */}
+            {training.extension_activity && (
+              <div ref={extSectionRef}>
+                <h4 className="font-semibold mb-3">Extension Activity</h4>
+                <div className="space-y-2">
+                  {(training.extension_activity.title || training.extension_activity.partner) && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      {training.extension_activity.title && (
+                        <p className="font-medium">{training.extension_activity.title}</p>
+                      )}
+                      {training.extension_activity.partner && (
+                        <Badge variant="outline">Partner: {training.extension_activity.partner}</Badge>
+                      )}
+                    </div>
+                  )}
+                  {training.extension_activity.description && (
+                    <p className="text-sm text-muted-foreground">{training.extension_activity.description}</p>
+                  )}
+
+                  {/* Extension Activity Media */}
+                  {Array.isArray(training.extension_activity.media) && training.extension_activity.media.length > 0 && (
+                    <div className="mt-3 space-y-4">
+                      {/* Ext Images */}
+                      {training.extension_activity.media.some(m => m.type === 'image') && (
+                        <div>
+                          <h5 className="font-medium mb-2 flex items-center gap-2">
+                            <Image className="w-4 h-4" />
+                            Extension Images ({training.extension_activity.media.filter(m => m.type === 'image').length})
+                          </h5>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                            {training.extension_activity.media.filter(m => m.type === 'image').map((m, idx) => (
+                              <div key={`ext-img-${idx}`} className="relative group aspect-video rounded-lg overflow-hidden bg-muted">
+                                <img src={m.url} alt={m.name || `Extension image ${idx+1}`} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <Button size="icon" variant="secondary" onClick={() => setSelectedMedia(m.url)}>
+                                    <ZoomIn className="w-4 h-4" />
+                                  </Button>
+                                  <Button size="icon" variant="secondary" onClick={() => handleDownload(m.url, m.name || `extension-image-${idx+1}.jpg`)}>
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ext Videos */}
+                      {training.extension_activity.media.some(m => m.type === 'video') && (
+                        <div>
+                          <h5 className="font-medium mb-2 flex items-center gap-2">
+                            <Video className="w-4 h-4" />
+                            Extension Videos ({training.extension_activity.media.filter(m => m.type === 'video').length})
+                          </h5>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                            {training.extension_activity.media.filter(m => m.type === 'video').map((m, idx) => (
+                              <div key={`ext-vid-${idx}`} className="relative rounded-lg overflow-hidden bg-muted">
+                                <video src={m.url} controls className="w-full aspect-video object-cover" />
+                                <div className="p-2 flex items-center justify-between bg-muted/80">
+                                  <span className="text-sm truncate flex-1">{m.name || `extension-video-${idx+1}.mp4`}</span>
+                                  <Button size="icon" variant="ghost" onClick={() => handleDownload(m.url, m.name || `extension-video-${idx+1}.mp4`)}>
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

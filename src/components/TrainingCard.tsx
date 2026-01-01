@@ -70,6 +70,9 @@ export const TrainingCard: React.FC<TrainingCardProps> = ({
                   {mediaCount}
                 </Badge>
               )}
+              {training.extension_activity && (
+                <Badge variant="default" className="text-[10px] bg-emerald-600/90 hover:bg-emerald-600">Extension</Badge>
+              )}
             </div>
             <CardTitle className="text-lg font-semibold line-clamp-2">
               {training.title}
