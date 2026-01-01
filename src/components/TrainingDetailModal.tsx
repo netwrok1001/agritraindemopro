@@ -48,7 +48,8 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
   const [extError, setExtError] = useState<string | null>(null);
   const [extData, setExtData] = useState<{ title: string | null; description: string | null; partner: string | null; media_urls: string | null } | null>(null);
 
-  if (!training) return null;
+  // Avoid returning before hooks; guard inside effects and render
+
 
   // Fetch extension activity details from extension_activities table when modal opens
   React.useEffect(() => {
@@ -75,7 +76,7 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
     return () => { cancelled = true; };
   }, [isOpen, training?.id]);
 
-  const totalExpenses = training.expenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
+  const totalExpenses = (training?.expenses ?? []).reduce((sum, exp) => sum + Number(exp.amount), 0);
 
   const handleDownload = async (url: string, fileName: string) => {
     try {
@@ -97,6 +98,9 @@ export const TrainingDetailModal: React.FC<TrainingDetailModalProps> = ({
 
   const images = training.media?.filter(m => m.file_type.startsWith('image')) || [];
   const videos = training.media?.filter(m => m.file_type.startsWith('video')) || [];
+
+  // Render nothing if closed or missing training
+  if (!isOpen || !training) return null;
 
   return (
     <>

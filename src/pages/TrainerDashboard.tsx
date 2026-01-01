@@ -36,7 +36,9 @@ const TrainerDashboard: React.FC = () => {
 
   const { trainings, isLoading, refetch } = useTrainings(user?.trainerId);
 
-  if (!user) return null;
+  // Avoid returning before hooks; render a lightweight shell instead
+  const noUser = !user;
+
 
   const filteredTrainings = trainings.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
