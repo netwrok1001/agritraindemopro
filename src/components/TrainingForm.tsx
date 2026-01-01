@@ -232,14 +232,8 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
           gps_lat: gpsLat ? parseFloat(gpsLat) : null,
           gps_lng: gpsLng ? parseFloat(gpsLng) : null,
           gps_address: gpsAddress || null,
-          extension_activity: (extTitle || extDescription || extPartner || extMediaFiles.length > 0)
-            ? {
-                title: extTitle || null,
-                description: extDescription || null,
-                partner: extPartner || null,
-                media: []
-              }
-            : null
+          // Do not include extension_activity on initial insert to avoid failures on DBs without the column
+          // We'll update it after the training is created if needed
         })
         .select()
         .single();
@@ -299,10 +293,14 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
           partner: extPartner || null,
           media: extMedia
         };
-        await supabase
-          .from('trainings')
-          .update({ extension_activity: extensionPayload })
-          .eq('id', training.id);
+        try {
+          await supabase
+            .from('trainings')
+            .update({ extension_activity: extensionPayload })
+            .eq('id', training.id);
+        } catch (err) {
+          console.warn('Extension activity update skipped:', err);
+        }
       }
 
       // Add expenses
@@ -323,7 +321,8 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
       onSuccess?.();
     } catch (error: any) {
       console.error('Error creating training:', error);
-      toast.error('Failed to create training');
+      const message = (error?.message || error?.error_description || 'Failed to create training');
+      toast.error(`Failed to create training: ${message}`);
     } finally {
       setIsSubmitting(false);
     }

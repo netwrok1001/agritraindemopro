@@ -189,6 +189,7 @@ export type Database = {
           trainer_id: string
           training_mode: Database["public"]["Enums"]["training_mode"]
           training_type: Database["public"]["Enums"]["training_type"]
+          extension_activity: Json | null
           updated_at: string
         }
         Insert: {
@@ -208,6 +209,7 @@ export type Database = {
           trainer_id: string
           training_mode: Database["public"]["Enums"]["training_mode"]
           training_type: Database["public"]["Enums"]["training_type"]
+          extension_activity?: Json | null
           updated_at?: string
         }
         Update: {
@@ -227,6 +229,7 @@ export type Database = {
           trainer_id?: string
           training_mode?: Database["public"]["Enums"]["training_mode"]
           training_type?: Database["public"]["Enums"]["training_type"]
+          extension_activity?: Json | null
           updated_at?: string
         }
         Relationships: [

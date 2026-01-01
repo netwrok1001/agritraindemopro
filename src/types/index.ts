@@ -35,6 +35,12 @@ export interface GPSCoordinates {
   address?: string;
 }
 
+export interface ExtensionActivityMedia {
+  url: string;
+  type: 'image' | 'video';
+  name?: string;
+}
+
 export interface TrainingEvent {
   id: string;
   trainer_id: string;
@@ -56,6 +62,12 @@ export interface TrainingEvent {
   updated_at: string;
   media?: TrainingMedia[];
   expenses?: TrainingExpense[];
+  extension_activity?: {
+    title: string | null;
+    description: string | null;
+    partner: string | null;
+    media?: ExtensionActivityMedia[];
+  } | null;
 }
 
 export interface TrainingMedia {
