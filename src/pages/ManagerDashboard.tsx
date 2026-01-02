@@ -49,6 +49,15 @@ const ManagerDashboard: React.FC = () => {
   
   const [viewMode, setViewMode] = useState<ViewMode>('trainers');
   const [showSidebar, setShowSidebar] = useState(false);
+
+  React.useEffect(() => {
+    if (!showSidebar) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSidebar(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showSidebar]);
   const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddTrainerOpen, setIsAddTrainerOpen] = useState(false);
@@ -128,10 +137,22 @@ const ManagerDashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {showSidebar && (
-        <ModePanel onLogout={handleLogout} />
-      )}
+    <div className="flex min-h-screen bg-background relative">
+      {/* Overlay */}
+      <div
+        className={`fixed inset-0 bg-black/40 transition-opacity duration-300 ${showSidebar ? 'opacity-100' : 'opacity-0 pointer-events-none'} z-40`}
+        onClick={() => setShowSidebar(false)}
+        aria-hidden={!showSidebar}
+      />
+      {/* Slide-in Drawer */}
+      <div
+        className={`fixed left-0 top-0 h-screen w-80 transform transition-transform duration-300 z-50 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
+        role="dialog"
+        aria-modal={showSidebar}
+        aria-label="Sidebar"
+      >
+        <ModePanel onLogout={handleLogout} onClose={() => setShowSidebar(false)} />
+      </div>
 
       <main className="flex-1 p-8">
         {/* Header */}
