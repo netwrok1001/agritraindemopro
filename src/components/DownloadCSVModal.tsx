@@ -111,6 +111,11 @@ export const DownloadCSVModal: React.FC<DownloadCSVModalProps> = ({
       'GPS Longitude',
       'Total Expenses',
       'Expense Details',
+      'Extension Title',
+      'Extension Description',
+      'Extension Partner',
+      'Extension Media Count',
+      'Extension Media URLs'
     ];
 
     const rows = filteredTrainings.map(training => {
@@ -119,6 +124,14 @@ export const DownloadCSVModal: React.FC<DownloadCSVModalProps> = ({
       const expenseDetails = training.expenses
         ?.map(e => `${e.expense_name}: ₹${e.amount}`)
         .join('; ') || '';
+
+      const ext = training.extension_activity || null;
+      const extTitle = ext?.title || '';
+      const extDesc = ext?.description || '';
+      const extPartner = ext?.partner || '';
+      const extMedia = ext?.media || [];
+      const extMediaCount = Array.isArray(extMedia) ? extMedia.length : 0;
+      const extMediaUrls = Array.isArray(extMedia) ? extMedia.map(m => m.url).join('; ') : '';
 
       return [
         `"${(training.title || '').replace(/"/g, '""')}"`,
@@ -139,6 +152,11 @@ export const DownloadCSVModal: React.FC<DownloadCSVModalProps> = ({
         training.gps_lng || '',
         totalExpenses,
         `"${expenseDetails.replace(/"/g, '""')}"`,
+        `"${extTitle.replace(/"/g, '""')}"`,
+        `"${extDesc.replace(/"/g, '""')}"`,
+        `"${extPartner.replace(/"/g, '""')}"`,
+        extMediaCount,
+        `"${extMediaUrls.replace(/"/g, '""')}"`,
       ];
     });
 
