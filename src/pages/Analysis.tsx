@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 const Analysis: React.FC = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-8">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 sm:p-8">
       <div className="max-w-2xl w-full text-center">
         <div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-6">
           <BarChart2 className="w-10 h-10 text-muted-foreground" />

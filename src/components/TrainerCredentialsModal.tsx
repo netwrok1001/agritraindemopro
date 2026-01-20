@@ -33,7 +33,7 @@ export const TrainerCredentialsModal: React.FC<TrainerCredentialsModalProps> = (
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl flex items-center gap-2">
             <User className="w-6 h-6" />
-            Trainer Credentials
+            User  Credentials
           </DialogTitle>
           <DialogDescription>
             Login credentials for {trainer.name}

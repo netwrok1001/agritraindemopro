@@ -58,7 +58,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: supabaseUser.email || '',
           name: trainerData.name,
           role: 'trainer',
-          trainerId: trainerData.id
+          trainerId: trainerData.id,
+          Discipline: trainerData.Discipline,
+          Post: trainerData.Post
         };
       }
 

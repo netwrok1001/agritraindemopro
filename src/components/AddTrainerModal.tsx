@@ -29,11 +29,13 @@ export const AddTrainerModal: React.FC<AddTrainerModalProps> = ({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [discipline, setDiscipline] = useState('');
+  const [post, setPost] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !email.trim() || !password.trim()) {
+    if (!name.trim() || !email.trim() || !password.trim() || !discipline.trim() || !post.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -46,15 +48,15 @@ export const AddTrainerModal: React.FC<AddTrainerModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const result = await addTrainer(email, password, name);
+      const result = await addTrainer(email, password, name, discipline, post);
       
       if (result.success) {
-        toast.success('Trainer account created successfully!');
+        toast.success('Scientist  account created successfully!');
         resetForm();
         onClose();
         onSuccess?.();
       } else {
-        toast.error(result.error || 'Failed to create trainer account');
+        toast.error(result.error || 'Failed to create Scientist account');
       }
     } catch (error: any) {
       toast.error(error.message || 'An error occurred');
@@ -67,6 +69,8 @@ export const AddTrainerModal: React.FC<AddTrainerModalProps> = ({
     setName('');
     setEmail('');
     setPassword('');
+    setDiscipline('');
+    setPost('');
   };
 
   const handleClose = () => {
@@ -80,10 +84,10 @@ export const AddTrainerModal: React.FC<AddTrainerModalProps> = ({
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl flex items-center gap-2">
             <UserPlus className="w-6 h-6" />
-            Add New Trainer
+            Add New Scientist 
           </DialogTitle>
           <DialogDescription>
-            Create a new trainer account. They will be able to log in with these credentials.
+            Create a new Scientist account. They will be able to log in with these credentials.
           </DialogDescription>
         </DialogHeader>
 
@@ -96,7 +100,7 @@ export const AddTrainerModal: React.FC<AddTrainerModalProps> = ({
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter trainer's name"
+                placeholder="Enter Scientist's name"
                 className="pl-10"
                 required
               />
@@ -132,6 +136,36 @@ export const AddTrainerModal: React.FC<AddTrainerModalProps> = ({
                 className="pl-10"
                 required
                 minLength={6}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="discipline">Discipline</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="discipline"
+                value={discipline}
+                onChange={(e) => setDiscipline(e.target.value)}
+                placeholder="Enter discipline"
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="post">Post</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="post"
+                value={post}
+                onChange={(e) => setPost(e.target.value)}
+                placeholder="Enter post"
+                className="pl-10"
+                required
               />
             </div>
           </div>

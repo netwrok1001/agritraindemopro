@@ -57,8 +57,7 @@ const Index: React.FC = () => {
               </Link>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 mt-16 max-w-lg mx-auto animate-fade-in" style={{ animationDelay: '400ms' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-16 max-w-lg mx-auto animate-fade-in" style={{ animationDelay: '400ms' }}>
               <div className="text-center">
                 <p className="text-3xl md:text-4xl font-bold text-primary">500+</p>
                 <p className="text-sm text-muted-foreground mt-1">Trainings</p>

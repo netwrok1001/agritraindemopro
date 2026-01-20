@@ -28,7 +28,7 @@ export const useTrainers = () => {
     fetchTrainers();
   }, []);
 
-  const addTrainer = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+  const addTrainer = async (email: string, password: string, name: string, discipline?: string, post?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // First create the auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -56,7 +56,9 @@ export const useTrainers = () => {
         .insert({
           user_id: authData.user.id,
           email,
-          name
+          name,
+          Discipline: discipline,
+          Post: post
         });
 
       if (trainerError) {

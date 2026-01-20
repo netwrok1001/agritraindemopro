@@ -63,13 +63,11 @@ const TrainerDashboard: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-background relative">
-      {/* Overlay */}
       <div
         className={`fixed inset-0 bg-black/40 transition-opacity duration-300 ${showSidebar ? 'opacity-100' : 'opacity-0 pointer-events-none'} z-40`}
         onClick={() => setShowSidebar(false)}
         aria-hidden={!showSidebar}
       />
-      {/* Slide-in Drawer */}
       <div
         className={`fixed left-0 top-0 h-screen w-80 transform transition-transform duration-300 z-50 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
         role="dialog"
@@ -79,9 +77,9 @@ const TrainerDashboard: React.FC = () => {
         <ModePanel onLogout={handleLogout} onClose={() => setShowSidebar(false)} />
       </div>
 
-      <main className="flex-1 p-8">
-        {/* Header */}
-        <header className="flex items-center justify-between mb-8">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        {user && (
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -96,6 +94,13 @@ const TrainerDashboard: React.FC = () => {
               <h1 className="font-serif text-3xl font-bold text-foreground">
                 Welcome, {user.name}
               </h1>
+              {(user.Discipline || user.Post) && (
+                <div className="mt-3 inline-flex bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-950 dark:to-emerald-950 border border-blue-200 dark:border-blue-800 rounded-full px-4 py-2">
+                  <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                    {user.Discipline && user.Post ? `${user.Discipline} • ${user.Post}` : user.Discipline || user.Post}
+                  </span>
+                </div>
+              )}
               <p className="text-muted-foreground mt-1">
                 Manage your agricultural training sessions
               </p>
@@ -108,9 +113,9 @@ const TrainerDashboard: React.FC = () => {
             </Button>
           </div>
         </header>
+        )}
 
-        {/* Filters */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input

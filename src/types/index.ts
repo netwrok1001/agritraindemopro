@@ -10,6 +10,8 @@ export interface User {
   name: string;
   role: UserRole;
   trainerId?: string;
+  Discipline?: string;
+  Post?: string;
 }
 
 export interface Trainer {
@@ -20,6 +22,8 @@ export interface Trainer {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  Discipline?: string;
+  Post?: string;
 }
 
 export interface FarmerDemographics {

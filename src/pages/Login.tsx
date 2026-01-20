@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CreateAccountModal } from '@/components/CreateAccountModal';
 import { Sprout, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -13,6 +14,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isCreateAccountModalOpen, setIsCreateAccountModalOpen] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -141,6 +143,20 @@ const Login: React.FC = () => {
                 </Button>
               </form>
 
+              <div className="mt-6 space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border"></span>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">New user?</span>
+                  </div>
+                </div>
+                <Button type="button" variant="outline" className="w-full" size="lg" onClick={() => setIsCreateAccountModalOpen(true)}>
+                  Create Account
+                </Button>
+              </div>
+
               <div className="mt-8 pt-6 border-t border-border">
                 <p className="text-sm text-muted-foreground">
                   Contact your manager if you need access to the system.
@@ -148,6 +164,11 @@ const Login: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          <CreateAccountModal 
+            isOpen={isCreateAccountModalOpen}
+            onClose={() => setIsCreateAccountModalOpen(false)}
+          />
         </div>
       </div>
     </div>

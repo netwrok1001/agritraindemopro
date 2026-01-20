@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrainers } from '@/hooks/useTrainers';
 import { useAllTrainings } from '@/hooks/useTrainings';
@@ -21,10 +21,17 @@ import {
   Trash2,
   Loader2,
   GraduationCap,
-  Download
+  Download,
+  Bell
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Trainer, TrainingEvent } from '@/types';
 import { toast } from 'sonner';
 import {
@@ -38,19 +45,34 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type ViewMode = 'trainers' | 'trainings';
 
+interface NewAccountRow {
+  id: string;
+  name: string | null;
+  discipline: string | null;
+  post: string | null;
+  approved: boolean | null;
+}
+
 const ManagerDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const { trainers, isLoading: trainersLoading, deleteTrainer, refetch: refetchTrainers } = useTrainers();
+  const { trainers, isLoading: trainersLoading, addTrainer, deleteTrainer, refetch: refetchTrainers } = useTrainers();
   const { trainings, isLoading: trainingsLoading, getTrainerTrainings, getTrainerStats, getAllStats, refetch: refetchTrainings } = useAllTrainings();
   
   const [viewMode, setViewMode] = useState<ViewMode>('trainers');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [disciplineFilter, setDisciplineFilter] = useState<string>('all');
+  const [postFilter, setPostFilter] = useState<string>('all');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!showSidebar) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowSidebar(false);
@@ -72,26 +94,38 @@ const ManagerDashboard: React.FC = () => {
   
   // CSV Modal state
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [newAccounts, setNewAccounts] = useState<NewAccountRow[]>([]);
 
   if (!user) return null;
 
   // Stats replaced by ModePanel
   const selectedTrainerTrainings = selectedTrainer ? getTrainerTrainings(selectedTrainer.id) : [];
 
-  const filteredTrainers = trainers.filter(trainer =>
-    trainer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    trainer.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTrainers = trainers.filter(trainer => {
+    const matchesSearch = trainer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         trainer.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDiscipline = disciplineFilter === 'all' || trainer.Discipline === disciplineFilter;
+    const matchesPost = postFilter === 'all' || trainer.Post === postFilter;
+    return matchesSearch && matchesDiscipline && matchesPost;
+  });
 
-  const filteredTrainings = trainings.filter(training =>
-    training.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (training.description?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (training.gps_address?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredTrainings = trainings.filter(training => {
+    const matchesSearch = training.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (training.description?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                         (training.gps_address?.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesSearch;
+  });
+
+  // Get unique disciplines and posts from trainers
+  const uniqueDisciplines = Array.from(new Set(trainers.filter(t => t.Discipline).map(t => t.Discipline)));
+  const uniquePosts = Array.from(new Set(trainers.filter(t => t.Post).map(t => t.Post)));
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const handleDeleteTrainer = async () => {
@@ -132,19 +166,114 @@ const ManagerDashboard: React.FC = () => {
   };
 
   const handleEditTraining = () => {
-    // For now, show a toast - edit functionality would require a separate form
     toast.info('Edit functionality coming soon');
   };
 
+  const refreshNewAccounts = async () => {
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const { data, error } = await supabase
+        .from('new_accounts')
+        .select('id, name, discipline, post, approved')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setNewAccounts((data || []) as NewAccountRow[]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load new accounts';
+      setNotificationsError(message);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleAccountDecision = async (id: string, approved: boolean) => {
+    if (!approved) {
+      try {
+        const { error } = await supabase
+          .from('new_accounts')
+          .update({ approved: false })
+          .eq('id', id);
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success('Account rejected');
+        await refreshNewAccounts();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update account';
+        setNotificationsError(message);
+        toast.error(message);
+      }
+      return;
+    }
+
+    try {
+      const { data: account, error: accountError } = await supabase
+        .from('new_accounts')
+        .select('name, discipline, post, email, password')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (accountError) {
+        throw accountError;
+      }
+
+      if (!account) {
+        throw new Error('Account request not found');
+      }
+
+      if (!account.email || !account.password) {
+        throw new Error('Account is missing email or password');
+      }
+
+      const result = await addTrainer(
+        account.email,
+        account.password,
+        account.name || '',
+        account.discipline || undefined,
+        account.post || undefined
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create trainer account');
+      }
+
+      const { error: updateError } = await supabase
+        .from('new_accounts')
+        .update({ approved: true })
+        .eq('id', id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      toast.success('Account approved and trainer created');
+      await refreshNewAccounts();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to approve account';
+      setNotificationsError(message);
+      toast.error(message);
+    }
+  };
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+    void refreshNewAccounts();
+  }, [isNotificationsOpen]);
+
   return (
     <div className="flex min-h-screen bg-background relative">
-      {/* Overlay */}
       <div
         className={`fixed inset-0 bg-black/40 transition-opacity duration-300 ${showSidebar ? 'opacity-100' : 'opacity-0 pointer-events-none'} z-40`}
         onClick={() => setShowSidebar(false)}
         aria-hidden={!showSidebar}
       />
-      {/* Slide-in Drawer */}
       <div
         className={`fixed left-0 top-0 h-screen w-80 transform transition-transform duration-300 z-50 ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}
         role="dialog"
@@ -154,9 +283,8 @@ const ManagerDashboard: React.FC = () => {
         <ModePanel onLogout={handleLogout} onClose={() => setShowSidebar(false)} />
       </div>
 
-      <main className="flex-1 p-8">
-        {/* Header */}
-        <header className="flex items-center justify-between mb-8">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -181,12 +309,12 @@ const ManagerDashboard: React.FC = () => {
               <h1 className="font-serif text-3xl font-bold text-foreground">
                 {selectedTrainer 
                   ? `${selectedTrainer.name}'s Trainings`
-                  : 'Manager Dashboard'}
+                  : 'Head scientist"s Dashboard'}
               </h1>
               <p className="text-muted-foreground mt-1">
                 {selectedTrainer 
                   ? selectedTrainer.email
-                  : 'Overview of all trainers and their activities'}
+                  : 'Overview of all scientist and their activities'}
               </p>
             </div>
            {!selectedTrainer && (
@@ -197,19 +325,25 @@ const ManagerDashboard: React.FC = () => {
                </Button>
                <Button variant="hero" onClick={() => setIsAddTrainerOpen(true)}>
                  <UserPlus className="w-4 h-4" />
-                 Add Trainer
+                 Add Scientist 
                </Button>
              </div>
            )}
-         </div>
-         <div className="flex items-center gap-3">
-            {/* Logout moved to ModePanel */}
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Notifications"
+              onClick={() => setIsNotificationsOpen(true)}
+            >
+              <Bell className="w-5 h-5" />
+            </Button>
           </div>
         </header>
 
         {!selectedTrainer ? (
           <>
-            {/* View Mode Toggle */}
             <div className="flex items-center gap-4 mb-6">
               <div className="inline-flex rounded-lg border border-border bg-muted p-1">
                 <button
@@ -237,15 +371,49 @@ const ManagerDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Search */}
-            <div className="relative max-w-md mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder={viewMode === 'trainers' ? 'Search trainers...' : 'Search trainings...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder={viewMode === 'trainers' ? 'Search trainers...' : 'Search trainings...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Filters - Only show for Trainers view */}
+              {viewMode === 'trainers' && (
+                <>
+                  <Select value={disciplineFilter} onValueChange={setDisciplineFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter by discipline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Disciplines</SelectItem>
+                      {uniqueDisciplines.map((discipline) => (
+                        <SelectItem key={discipline} value={discipline || ''}>
+                          {discipline}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={postFilter} onValueChange={setPostFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter by post" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Posts</SelectItem>
+                      {uniquePosts.map((post) => (
+                        <SelectItem key={post} value={post || ''}>
+                          {post}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
             </div>
 
             {/* Loading State */}
@@ -431,6 +599,75 @@ const ManagerDashboard: React.FC = () => {
           </>
         )}
       </main>
+
+      <Dialog open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>New Account Requests</DialogTitle>
+          </DialogHeader>
+          {notificationsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            </div>
+          ) : notificationsError ? (
+            <div className="text-sm text-red-600 py-4">
+              {notificationsError}
+            </div>
+          ) : newAccounts.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-4">
+              There are no pending account requests.
+            </div>
+          ) : (
+            <div className="border rounded-md overflow-hidden">
+              <div className="grid grid-cols-4 gap-4 px-4 py-3 bg-muted text-sm font-medium text-muted-foreground">
+                <div>Name</div>
+                <div>Discipline</div>
+                <div>Post</div>
+                <div className="text-right">Action</div>
+              </div>
+              <div>
+                {newAccounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="grid grid-cols-4 gap-4 px-4 py-3 border-t text-sm items-center"
+                  >
+                    <div>{account.name || '-'}</div>
+                    <div>{account.discipline || '-'}</div>
+                    <div>{account.post || '-'}</div>
+                    <div className="flex justify-end gap-2">
+                      {account.approved === null ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAccountDecision(account.id, false)}
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAccountDecision(account.id, true)}
+                          >
+                            Accept
+                          </Button>
+                        </>
+                      ) : account.approved ? (
+                        <span className="text-xs font-medium text-green-600">
+                          Approved
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-red-600">
+                          Rejected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add Trainer Modal */}
       <AddTrainerModal

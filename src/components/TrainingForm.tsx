@@ -145,39 +145,6 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
     setMediaPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Extension activity media handlers
-  const handleExtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    const newFiles: File[] = [];
-    const newPreviews: { file: File; url: string; type: string }[] = [];
-
-    Array.from(files).forEach((file) => {
-      const isImage = file.type.startsWith('image/');
-      const isVideo = file.type.startsWith('video/');
-
-      if (isImage || isVideo) {
-        newFiles.push(file);
-        newPreviews.push({
-          file,
-          url: URL.createObjectURL(file),
-          type: isImage ? 'image' : 'video',
-        });
-      }
-    });
-
-    setExtMediaFiles((prev) => [...prev, ...newFiles]);
-    setExtMediaPreviews((prev) => [...prev, ...newPreviews]);
-    toast.success(`${newFiles.length} extension file(s) added`);
-  };
-
-  const removeExtMedia = (index: number) => {
-    URL.revokeObjectURL(extMediaPreviews[index].url);
-    setExtMediaFiles((prev) => prev.filter((_, i) => i !== index));
-    setExtMediaPreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const addExpense = () => {
     if (expenseCategories.length > 0) {
       setExpenses(prev => [...prev, { 
@@ -214,137 +181,95 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
     setIsSubmitting(true);
 
     try {
-      // Create training record (be resilient if extension_activity column is not migrated yet)
-      const baseInsert: any = {
-        trainer_id: trainerId,
-        title,
-        description: description || null,
-        training_type: trainingType,
-        training_mode: trainingMode,
-        total_farmers_male: parseInt(maleCount) || 0,
-        total_farmers_female: parseInt(femaleCount) || 0,
-        demographics_sc: parseInt(demographics.sc) || 0,
-        demographics_st: parseInt(demographics.st) || 0,
-        demographics_gen: parseInt(demographics.gen) || 0,
-        demographics_obc: parseInt(demographics.obc) || 0,
-        gps_lat: gpsLat ? parseFloat(gpsLat) : null,
-        gps_lng: gpsLng ? parseFloat(gpsLng) : null,
-        gps_address: gpsAddress || null,
-      };
-      const extFlag = Boolean(extTitle || extDescription || extPartner || extMediaFiles.length > 0);
-
-      let trainingInsertResp = await supabase
+      // Create training record
+      const { data: training, error: trainingError } = await supabase
         .from('trainings')
-        .insert({ ...baseInsert, extension_activity: extFlag })
+        .insert({
+          trainer_id: trainerId,
+          title,
+          description: description || null,
+          training_type: trainingType,
+          training_mode: trainingMode,
+          total_farmers_male: parseInt(maleCount) || 0,
+          total_farmers_female: parseInt(femaleCount) || 0,
+          demographics_sc: parseInt(demographics.sc) || 0,
+          demographics_st: parseInt(demographics.st) || 0,
+          demographics_gen: parseInt(demographics.gen) || 0,
+          demographics_obc: parseInt(demographics.obc) || 0,
+          gps_lat: gpsLat ? parseFloat(gpsLat) : null,
+          gps_lng: gpsLng ? parseFloat(gpsLng) : null,
+          gps_address: gpsAddress || null,
+          extension_activity: (extTitle || extDescription || extPartner || extMediaFiles.length > 0)
+            ? {
+                title: extTitle || null,
+                description: extDescription || null,
+                partner: extPartner || null,
+                media: []
+              }
+            : null
+        })
         .select()
         .single();
 
-      // Retry without the extension_activity field if the column doesn't exist
-      if ((trainingInsertResp as any)?.error && String((trainingInsertResp as any).error.message || '').toLowerCase().includes('extension_activity')) {
-        console.warn('extension_activity column missing; retrying insert without it');
-        trainingInsertResp = await supabase
-          .from('trainings')
-          .insert(baseInsert)
-          .select()
-          .single();
-      }
-
-      const { data: training, error: trainingError } = trainingInsertResp as any;
       if (trainingError) throw trainingError;
-
-      // Best-effort: if column exists, update the flag after insert
-      if (extFlag) {
-        const { error: extFlagErr } = await supabase
-          .from('trainings')
-          .update({ extension_activity: true as any })
-          .eq('id', training.id);
-        if (extFlagErr && String(extFlagErr.message || '').toLowerCase().includes('extension_activity')) {
-          console.warn('extension_activity column not found on update; skipping flag set');
-        }
-      }
 
       // Upload training media files
       for (const file of mediaFiles) {
-        const fileExt = file.name.includes('.') ? file.name.split('.').pop() : 'bin';
-        const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const fileName = `${training.id}/${Date.now()}-${safeBase}.${fileExt}`;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${training.id}/${Date.now()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('training-media')
-          .upload(fileName, file, { contentType: file.type || undefined, upsert: false });
+          .upload(fileName, file);
 
-        if (uploadError) {
-          console.error('Training media upload failed:', uploadError);
-          toast.error(`Media upload failed: ${uploadError.message || 'unknown error'}`);
-        } else {
+        if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage
             .from('training-media')
             .getPublicUrl(fileName);
 
-          const { error: mediaInsertError } = await supabase.from('training_media').insert({
+          await supabase.from('training_media').insert({
             training_id: training.id,
             file_url: publicUrl,
             file_type: file.type.startsWith('image/') ? 'image' : 'video',
             file_name: file.name
           });
-          if (mediaInsertError) {
-            console.error('DB insert for training_media failed:', mediaInsertError);
-            toast.error(`Failed to save media record: ${mediaInsertError.message || 'unknown error'}`);
-          }
         }
       }
 
-      // Upload extension activity media and collect public URLs (to be stored as comma-separated string)
-      let extMediaUrls: string[] = [];
+      // Upload extension activity media (store URLs inside extension_activity JSON)
+      let extMedia: ExtensionActivityMedia[] = [];
       if (extMediaFiles.length > 0) {
         for (const file of extMediaFiles) {
-          const fileExt = file.name.includes('.') ? file.name.split('.').pop() : 'bin';
-          const safeBase = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const fileName = `${training.id}/extension/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeBase}.${fileExt}`;
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${training.id}/extension/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
           const { error: uploadError } = await supabase.storage
             .from('training-media')
-            .upload(fileName, file, { contentType: file.type || undefined, upsert: false });
-          if (uploadError) {
-            console.error('Extension media upload failed:', uploadError);
-            toast.error(`Extension media upload failed: ${uploadError.message || 'unknown error'}`);
-          } else {
+            .upload(fileName, file);
+          if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage
               .from('training-media')
               .getPublicUrl(fileName);
-            extMediaUrls.push(publicUrl);
+            extMedia.push({
+              url: publicUrl,
+              type: file.type.startsWith('image/') ? 'image' : 'video',
+              name: file.name
+            });
           }
         }
       }
 
-      // If any extension activity data exists, insert/update a row in extension_activities (strings only)
-      if (extTitle || extDescription || extPartner || extMediaUrls.length > 0) {
-        const payload = {
-          training_id: training.id,
+      // If any extension activity data exists, update the training with full JSON including media
+      if (extTitle || extDescription || extPartner || extMedia.length > 0) {
+        const extensionPayload = {
           title: extTitle || null,
           description: extDescription || null,
           partner: extPartner || null,
-          media_urls: extMediaUrls.join(',') || null,
-        } as Record<string, any>;
-
-        // Try upsert by training_id (assumes unique constraint on training_id) else fallback to insert
-        const { error: extUpsertError } = await supabase
-          .from('extension_activities')
-          .upsert(payload, { onConflict: 'training_id' });
-
-        if (extUpsertError) {
-          console.warn('Extension activities upsert failed, trying insert:', extUpsertError);
-          const { error: extInsertError } = await supabase
-            .from('extension_activities')
-            .insert(payload);
-          if (extInsertError) {
-            console.error('Extension activities insert failed:', extInsertError);
-            toast.warning(`Training saved, but extension activity could not be saved: ${extInsertError.message || 'unknown error'}`);
-          } else {
-            toast.success('Extension activity saved');
-          }
-        } else {
-          toast.success('Extension activity saved');
-        }
+          media: extMedia
+        };
+        await supabase
+          .from('trainings')
+          .update({ extension_activity: extensionPayload })
+          .eq('id', training.id);
       }
 
       // Add expenses
@@ -365,8 +290,7 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
       onSuccess?.();
     } catch (error: any) {
       console.error('Error creating training:', error);
-      const message = (error?.message || error?.error_description || 'Failed to create training');
-      toast.error(`Failed to create training: ${message}`);
+      toast.error('Failed to create training');
     } finally {
       setIsSubmitting(false);
     }
@@ -867,3 +791,4 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
 // Extension Activity Sub-Form overlay inside the dialog
 // We render it conditionally at the end so it overlays on top of the dialog content
 export const TrainingFormWithExtension = TrainingForm;
+;
