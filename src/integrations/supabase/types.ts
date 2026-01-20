@@ -56,6 +56,85 @@ export type Database = {
         }
         Relationships: []
       }
+      extension_activities: {
+        Row: {
+          id: string
+          created_at: string
+          training_id: string
+          title: string | null
+          description: string | null
+          partner: string | null
+          media_urls: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          training_id: string
+          title?: string | null
+          description?: string | null
+          partner?: string | null
+          media_urls?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          training_id?: string
+          title?: string | null
+          description?: string | null
+          partner?: string | null
+          media_urls?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extension_activities_training_id_fkey"
+            columns: ["training_id"]
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      new_accounts: {
+        Row: {
+          id: string
+          created_at: string
+          name: string
+          email: string | null
+          phone: string | null
+          post: string
+          discipline: string
+          heads_email: string | null
+          contact_method: number
+          password: string
+          approved: boolean
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          name: string
+          email?: string | null
+          phone?: string | null
+          post: string
+          discipline: string
+          heads_email?: string | null
+          contact_method: number
+          password: string
+          approved?: boolean
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          name?: string
+          email?: string | null
+          phone?: string | null
+          post?: string
+          discipline?: string
+          heads_email?: string | null
+          contact_method?: number
+          password?: string
+          approved?: boolean
+        }
+        Relationships: []
+      }
       trainers: {
         Row: {
           created_at: string
