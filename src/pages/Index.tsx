@@ -1,25 +1,9 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sprout, Users, GraduationCap, BarChart3, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Index: React.FC = () => {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-primary">Loading...</div>
-      </div>
-    );
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}

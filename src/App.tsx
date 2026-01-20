@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import ComingSoon from "./pages/ComingSoon";
 import Analysis from "./pages/Analysis";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
 
 const queryClient = new QueryClient();
 
@@ -21,12 +23,18 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/oft" element={<ComingSoon />} />
-            <Route path="/fld" element={<ComingSoon />} />
-            <Route path="/analysis" element={<Analysis />} />
+            <Route element={<PublicRoute />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+            </Route>
+            
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/oft" element={<ComingSoon />} />
+              <Route path="/fld" element={<ComingSoon />} />
+              <Route path="/analysis" element={<Analysis />} />
+            </Route>
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
