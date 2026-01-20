@@ -51,14 +51,16 @@ export const useTrainers = () => {
       }
 
       // Create the trainer record
+      // Note: 'Discipline' and 'Post' columns are currently not in the trainers table schema
+      // so we are omitting them to prevent 422 errors.
       const { error: trainerError } = await supabase
         .from('trainers')
         .insert({
           user_id: authData.user.id,
           email,
-          name,
-          Discipline: discipline,
-          Post: post
+          name
+          // Discipline: discipline,
+          // Post: post
         });
 
       if (trainerError) {

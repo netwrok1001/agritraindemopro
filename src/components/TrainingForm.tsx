@@ -145,6 +145,38 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
     setMediaPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleExtFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles: File[] = [];
+    const newPreviews: { file: File; url: string; type: string }[] = [];
+
+    Array.from(files).forEach((file) => {
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      
+      if (isImage || isVideo) {
+        newFiles.push(file);
+        newPreviews.push({
+          file,
+          url: URL.createObjectURL(file),
+          type: isImage ? 'image' : 'video'
+        });
+      }
+    });
+
+    setExtMediaFiles(prev => [...prev, ...newFiles]);
+    setExtMediaPreviews(prev => [...prev, ...newPreviews]);
+    toast.success(`${newFiles.length} file(s) added to extension activity`);
+  };
+
+  const removeExtMedia = (index: number) => {
+    URL.revokeObjectURL(extMediaPreviews[index].url);
+    setExtMediaFiles(prev => prev.filter((_, i) => i !== index));
+    setExtMediaPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const addExpense = () => {
     if (expenseCategories.length > 0) {
       setExpenses(prev => [...prev, { 
@@ -199,14 +231,7 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
           gps_lat: gpsLat ? parseFloat(gpsLat) : null,
           gps_lng: gpsLng ? parseFloat(gpsLng) : null,
           gps_address: gpsAddress || null,
-          extension_activity: (extTitle || extDescription || extPartner || extMediaFiles.length > 0)
-            ? {
-                title: extTitle || null,
-                description: extDescription || null,
-                partner: extPartner || null,
-                media: []
-              }
-            : null
+          extension_activity: Boolean(extTitle || extDescription || extPartner || extMediaFiles.length > 0)
         })
         .select()
         .single();
@@ -258,18 +283,19 @@ export const TrainingForm: React.FC<TrainingFormProps> = ({
         }
       }
 
-      // If any extension activity data exists, update the training with full JSON including media
+      // If any extension activity data exists, insert into extension_activities table
       if (extTitle || extDescription || extPartner || extMedia.length > 0) {
-        const extensionPayload = {
-          title: extTitle || null,
-          description: extDescription || null,
-          partner: extPartner || null,
-          media: extMedia
-        };
-        await supabase
-          .from('trainings')
-          .update({ extension_activity: extensionPayload })
-          .eq('id', training.id);
+        const { error: extError } = await supabase
+          .from('extension_activities')
+          .insert({
+            training_id: training.id,
+            title: extTitle || null,
+            description: extDescription || null,
+            partner: extPartner || null,
+            media_urls: extMedia.map(m => m.url).join(',') || null
+          });
+
+        if (extError) throw extError;
       }
 
       // Add expenses

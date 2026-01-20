@@ -87,6 +87,11 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       return;
     }
 
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
     if (!confirmPassword.trim()) {
       toast.error('Please confirm your password');
       return;
